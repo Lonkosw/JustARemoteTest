@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Dark-only palette: easier on the eyes in the gym and saves battery. */
+:root {
+  --background: #0b0d10;
+  --surface: #15181d;
+  --surface-2: #1f242b;
+  --border: #2a3038;
+  --foreground: #f1f3f5;
+  --muted: #8b95a1;
+  --accent: #c6f432;
+  --accent-foreground: #0b0d10;
+  --danger: #ff6b6b;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-tap-highlight-color: transparent;
+}
