@@ -11,6 +11,18 @@ import type {
   WorkoutSet,
 } from "./types";
 
+/**
+ * Image data of a progress photo. Local only: the file itself goes to
+ * Supabase Storage, the row in progress_photos syncs like any table.
+ */
+export interface PhotoFile {
+  id: string;
+  full: Blob;
+  thumb: Blob;
+  /** 0 until the full image is uploaded to Storage. */
+  uploaded: 0 | 1;
+}
+
 /** Key/value store for app state such as sync cursors. */
 export interface MetaEntry {
   key: string;
@@ -30,6 +42,7 @@ export const db = new Dexie("treino") as Dexie & {
   workout_sets: EntityTable<WorkoutSet, "id">;
   body_measurements: EntityTable<BodyMeasurement, "id">;
   progress_photos: EntityTable<ProgressPhoto, "id">;
+  photo_files: EntityTable<PhotoFile, "id">;
   meta: EntityTable<MetaEntry, "key">;
 };
 
@@ -56,6 +69,9 @@ db.version(2)
         row.exercise_position ??= 0;
       }),
   );
+
+// v3: local image data for progress photos.
+db.version(3).stores({ photo_files: "id, uploaded" });
 
 export const SYNCED_TABLES = [
   "profiles",

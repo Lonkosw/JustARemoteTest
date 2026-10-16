@@ -61,13 +61,37 @@ const server = vi.hoisted(() => {
     };
   }
 
+  const files = new Map<string, Uint8Array>();
+  let failUpload = false;
+  const storage = {
+    from() {
+      return {
+        async upload(path: string, body: ArrayBuffer) {
+          if (failUpload) return { data: null, error: { message: "storage down" } };
+          files.set(path, new Uint8Array(body));
+          return { data: { path }, error: null };
+        },
+        async remove(paths: string[]) {
+          paths.forEach((p) => files.delete(p));
+          return { data: [], error: null };
+        },
+      };
+    },
+  };
+
   return {
-    client: { from },
+    client: { from, storage },
+    files,
+    setFailUpload(value: boolean) {
+      failUpload = value;
+    },
     tables,
     table,
     reset() {
       tables.clear();
+      files.clear();
       failNext = null;
+      failUpload = false;
     },
     failNextUpsert(message: string) {
       failNext = message;
@@ -206,6 +230,68 @@ describe("pull", () => {
     await syncNow(USER);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe("progress photos", () => {
+  async function localPhoto(name = "p1") {
+    const fields = newRowFields(USER);
+    const photo = { ...fields, taken_on: "2026-01-01", pose: "front" as const, storage_path: `${USER}/${fields.id}.jpg` };
+    const blob = new Blob([name], { type: "image/jpeg" });
+    await db.photo_files.add({ id: photo.id, full: blob, thumb: blob, uploaded: 0 });
+    await db.progress_photos.add(photo);
+    return photo;
+  }
+
+  it("uploads the image before pushing the row", async () => {
+    const photo = await localPhoto("image-bytes");
+    await syncNow(USER);
+    expect(new TextDecoder().decode(server.files.get(photo.storage_path))).toBe("image-bytes");
+    expect(server.table("progress_photos").has(photo.id)).toBe(true);
+    expect((await db.photo_files.get(photo.id))?.uploaded).toBe(1);
+  });
+
+  it("holds the row back while the upload fails", async () => {
+    const photo = await localPhoto();
+    server.setFailUpload(true);
+    await syncNow(USER);
+    expect(getSyncStatus().state).toBe("error");
+    expect(server.table("progress_photos").has(photo.id)).toBe(false);
+    expect((await db.progress_photos.get(photo.id))?.dirty).toBe(1);
+
+    server.setFailUpload(false);
+    await syncNow(USER);
+    expect(server.table("progress_photos").has(photo.id)).toBe(true);
+  });
+
+  it("removes the stored file when a photo is deleted", async () => {
+    const photo = await localPhoto();
+    await syncNow(USER);
+    await db.progress_photos.update(photo.id, { deleted_at: new Date().toISOString(), ...touchedFields() });
+    await db.photo_files.delete(photo.id);
+    await syncNow(USER);
+    expect(server.files.has(photo.storage_path)).toBe(false);
+    expect(server.table("progress_photos").get(photo.id)?.deleted_at).toBeTruthy();
+  });
+
+  it("never uploads a photo deleted before its first sync", async () => {
+    const photo = await localPhoto();
+    await db.progress_photos.update(photo.id, { deleted_at: new Date().toISOString(), ...touchedFields() });
+    await syncNow(USER);
+    expect(server.files.size).toBe(0);
+    expect(await db.photo_files.get(photo.id)).toBeUndefined();
+  });
+
+  it("drops the local image when another device deletes the photo", async () => {
+    const photo = await localPhoto();
+    await syncNow(USER);
+    server.write("progress_photos", {
+      ...server.table("progress_photos").get(photo.id)!,
+      deleted_at: "2026-06-01T00:00:00.000Z",
+      updated_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    await syncNow(USER);
+    expect(await db.photo_files.get(photo.id)).toBeUndefined();
   });
 });
 

@@ -38,8 +38,8 @@ Abra http://localhost:3000. Sem configurar o Supabase, o app roda em **modo loca
 |---|---|
 | `npm test` | Unitários (Vitest): cálculos de 1RM e recordes, progressão, fichas, treinos e o motor de sincronização com um Supabase falso em memória |
 | `npm run test:db` | Banco (SQL): RLS, “última escrita vence”, cursor de sincronização e storage. Sobe um Postgres local descartável |
-| `npm run test:e2e` | Ponta a ponta (Playwright, tela de celular) em modo local: onboarding, fichas, treino ao vivo, evolução e uso offline |
-| `npm run test:sync` | Ponta a ponta da sincronização com dois “aparelhos” contra um backend local (Postgres + PostgREST, a API que o Supabase usa) |
+| `npm run test:e2e` | Ponta a ponta (Playwright, tela de celular) em modo local: onboarding, fichas, treino ao vivo, evolução, medidas, fotos e uso offline |
+| `npm run test:sync` | Ponta a ponta da sincronização com dois “aparelhos” contra um backend local (Postgres + PostgREST, a API que o Supabase usa, e um Storage simples), incluindo fotos |
 | `npm run test:all` | Tudo acima, mais lint e typecheck |
 
 `test:db` e `test:sync` precisam dos binários do Postgres (`apt install postgresql`) e baixam o PostgREST na primeira execução. O GitHub Actions (`.github/workflows/ci.yml`) roda tudo a cada push.
@@ -58,6 +58,8 @@ Abra http://localhost:3000. Sem configurar o Supabase, o app roda em **modo loca
 | `src/lib/workouts.ts` | Treino ao vivo, carga anterior e sugestão de progressão |
 | `src/lib/sync.ts` | Sincronização IndexedDB ⇄ Supabase |
 | `src/lib/stats.ts` | 1RM estimado, recordes, sessões por exercício, volume semanal |
+| `src/lib/body.ts` | Peso e medidas: séries, variação em 30 dias, IMC |
+| `src/lib/photos.ts` | Fotos de progresso: redimensionamento, armazenamento local e download |
 | `e2e/`, `src/**/*.test.ts`, `supabase/tests/` | Testes |
 | `scripts/test-backend/` | Backend local para testes (Postgres + PostgREST) |
 | `supabase/migrations/` | Esquema do Postgres com RLS |
@@ -71,6 +73,10 @@ Abra http://localhost:3000. Sem configurar o Supabase, o app roda em **modo loca
 - No IndexedDB, `dirty = 1` marca linhas ainda não enviadas.
 - O app envia as linhas `dirty` (pais antes de filhos) e depois baixa o que mudou no servidor desde o último cursor. Roda ao abrir, ao voltar a internet, a cada minuto e 2 s depois de qualquer alteração local.
 - No servidor, um trigger ignora atualizações com `updated_at` mais antigo que o já salvo.
+
+## Fotos de progresso
+
+As fotos são reduzidas no aparelho (até 1600 px, JPEG) e guardadas no IndexedDB, então funcionam offline. Com Supabase, a sincronização envia o arquivo para o bucket privado `progress-photos` (pasta `<id do usuário>/`, protegida por RLS) antes de enviar a linha da foto. Outro aparelho baixa a imagem na primeira vez que ela aparece. Excluir uma foto apaga o arquivo do Storage na próxima sincronização.
 
 ## Recordes
 
@@ -86,4 +92,4 @@ Dupla progressão: se em todas as séries válidas do último treino você bateu
 2. ✅ Biblioteca de exercícios (151 + personalizados) e fichas (manual + modelos prontos)
 3. ✅ Treino ao vivo offline: timer de descanso, carga anterior, sugestão de progressão, sincronização
 4. ✅ Histórico, recordes (PR), 1RM estimado, gráficos por exercício, séries por grupo muscular e suíte de testes
-5. Peso, medidas e fotos de progresso
+5. ✅ Peso, medidas, gráficos de corpo e fotos de progresso (privadas, com comparação antes/depois)

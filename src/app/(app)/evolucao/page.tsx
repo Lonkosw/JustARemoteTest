@@ -2,8 +2,10 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { useSignedIn } from "@/components/auth-provider";
+import { BodyTab } from "@/components/body-tab";
 import { ChevronRightIcon, SearchIcon } from "@/components/icons";
 import { Splash } from "@/components/splash";
 import { Card, Input, PageTitle } from "@/components/ui";
@@ -19,11 +21,28 @@ import {
 import { useExercises } from "@/lib/use-exercises";
 import { formatDuration, formatKg } from "@/lib/workouts";
 
-type Tab = "history" | "exercises";
+const TABS = [
+  ["historico", "Histórico"],
+  ["exercicios", "Exercícios"],
+  ["corpo", "Corpo"],
+] as const;
+type Tab = (typeof TABS)[number][0];
 
 export default function ProgressPage() {
+  return (
+    <Suspense fallback={<Splash />}>
+      <Progress />
+    </Suspense>
+  );
+}
+
+function Progress() {
   const { userId } = useSignedIn();
-  const [tab, setTab] = useState<Tab>("history");
+  const router = useRouter();
+  // The tab lives in the URL so "back" from a detail page returns to it.
+  const param = useSearchParams().get("aba");
+  const tab: Tab = TABS.some(([value]) => value === param) ? (param as Tab) : "historico";
+  const setTab = (value: Tab) => router.replace(value === "historico" ? "/evolucao" : `/evolucao?aba=${value}`);
   const { byId } = useExercises(userId);
   const data = useLiveQuery(async () => {
     const [workouts, sets] = await Promise.all([listFinishedWorkouts(userId), loadLoggedSets(userId)]);
@@ -31,30 +50,14 @@ export default function ProgressPage() {
   }, [userId]);
 
   if (!data) return <Splash />;
-
-  if (data.workouts.length === 0) {
-    return (
-      <>
-        <PageTitle>Evolução</PageTitle>
-        <Card className="text-center text-muted">
-          Seus treinos finalizados aparecem aqui, com recordes e gráficos por exercício.
-        </Card>
-      </>
-    );
-  }
+  const noWorkouts = data.workouts.length === 0;
 
   return (
     <>
       <PageTitle>Evolução</PageTitle>
-      <WeekSummary data={data} groupOf={(id) => byId.get(id)?.muscle_group} />
 
-      <div role="tablist" className="mt-6 mb-4 grid grid-cols-2 rounded-xl bg-surface p-1">
-        {(
-          [
-            ["history", "Histórico"],
-            ["exercises", "Exercícios"],
-          ] as const
-        ).map(([value, label]) => (
+      <div role="tablist" className="mb-5 grid grid-cols-3 rounded-xl bg-surface p-1">
+        {TABS.map(([value, label]) => (
           <button
             key={value}
             role="tab"
@@ -67,8 +70,19 @@ export default function ProgressPage() {
         ))}
       </div>
 
-      {tab === "history" ? (
-        <History data={data} />
+      {tab === "corpo" ? (
+        <BodyTab userId={userId} />
+      ) : noWorkouts ? (
+        <Card className="text-center text-muted">
+          Seus treinos finalizados aparecem aqui, com recordes e gráficos por exercício.
+        </Card>
+      ) : tab === "historico" ? (
+        <>
+          <WeekSummary data={data} groupOf={(id) => byId.get(id)?.muscle_group} />
+          <div className="mt-6">
+            <History data={data} />
+          </div>
+        </>
       ) : (
         <ExerciseList sets={data.sets} nameOf={(id) => byId.get(id)?.name} groupOf={(id) => byId.get(id)?.muscle_group} />
       )}

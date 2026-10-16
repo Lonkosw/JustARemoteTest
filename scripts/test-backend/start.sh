@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Starts a throwaway Supabase-like backend for tests:
 #   Postgres (with Supabase stubs and every migration) + PostgREST + a proxy
-#   serving it at http://127.0.0.1:54321/rest/v1.
+#   serving it at http://127.0.0.1:54321/rest/v1, plus a small Storage
+#   server at /storage/v1 (files under $RUN/storage).
 # Needs Postgres server binaries (apt install postgresql) and network access
 # on first run to download PostgREST. Stop with scripts/test-backend/stop.sh.
 set -euo pipefail
@@ -58,7 +59,8 @@ EOF
 
 nohup "$CACHE/postgrest" "$RUN/postgrest.conf" >"$RUN/postgrest.log" 2>&1 &
 echo $! >"$RUN/postgrest.pid"
-nohup node "$HERE/proxy.mjs" 54321 3301 >"$RUN/proxy.log" 2>&1 &
+mkdir -p "$RUN/storage"
+nohup node "$HERE/proxy.mjs" 54321 3301 "$RUN/storage" >"$RUN/proxy.log" 2>&1 &
 echo $! >"$RUN/proxy.pid"
 
 for _ in $(seq 1 50); do

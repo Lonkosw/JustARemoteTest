@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { expect, test, type Browser } from "@playwright/test";
 import { signAccessToken } from "../scripts/test-backend/jwt.mjs";
 import { acceptDialogs, applyTemplate, exerciseBlock, logSet, onboard, routineCard, startRoutine } from "./helpers";
@@ -117,6 +118,39 @@ test("another user sees none of it", async ({ browser, request }) => {
   const c = await device(browser, USER_2);
   await c.page.goto("/");
   await c.page.waitForURL("**/onboarding", { timeout: 20_000 });
+});
+
+test("progress photos sync through Storage", async ({ browser, request }) => {
+  const a = await device(browser, USER_1);
+  await a.page.goto("/evolucao?aba=corpo");
+  await a.page.getByLabel("Escolher foto").setInputFiles(path.join(__dirname, "fixtures/photo-1.jpg"));
+  await a.page.getByRole("button", { name: "Salvar foto" }).click();
+
+  await expect.poll(() => sql("select count(*) from progress_photos where deleted_at is null"), { timeout: 20_000 }).toBe("1");
+  const storagePath = sql("select storage_path from progress_photos");
+  expect(storagePath.startsWith(`${USER_1}/`)).toBe(true);
+  const fileUrl = `${BACKEND}/storage/v1/object/progress-photos/${storagePath}`;
+  const owner = { Authorization: `Bearer ${signAccessToken(USER_1)}` };
+  const stored = await request.get(fileUrl, { headers: owner });
+  expect(stored.ok()).toBe(true);
+  expect((await stored.body()).subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8])); // JPEG
+
+  // Other users cannot read it.
+  const stranger = await request.get(fileUrl, { headers: { Authorization: `Bearer ${signAccessToken(USER_2)}` } });
+  expect(stranger.ok()).toBe(false);
+
+  // A new device downloads it on first view.
+  const b = await device(browser, USER_1);
+  await b.page.goto("/evolucao?aba=corpo");
+  const thumb = b.page.getByRole("button", { name: /^Foto / });
+  await expect(thumb.locator("img")).toHaveAttribute("src", /^blob:/, { timeout: 20_000 });
+
+  // Deleting on B removes the file and the photo on A.
+  await thumb.click();
+  await b.page.getByRole("button", { name: "Excluir foto" }).click();
+  await expect.poll(async () => (await request.get(fileUrl, { headers: owner })).ok(), { timeout: 20_000 }).toBe(false);
+  await a.page.reload();
+  await expect(a.page.getByText("Tire fotos na mesma pose")).toBeVisible({ timeout: 20_000 });
 });
 
 test("signing out sends pending changes and clears the device", async ({ browser }) => {

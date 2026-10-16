@@ -10,7 +10,7 @@
 //
 // Bump VERSION to drop old caches after a breaking change.
 
-const VERSION = "v5";
+const VERSION = "v6";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 const PRECACHE_PAGES = [
@@ -24,6 +24,9 @@ const PRECACHE_PAGES = [
   "/treino/resumo",
   "/evolucao",
   "/evolucao/exercicio",
+  "/corpo/medidas",
+  "/corpo/foto",
+  "/corpo/comparar",
   "/perfil",
 ];
 const ASSET_PATTERN = /\/_next\/static\/[^"'\s)\\]+/g;

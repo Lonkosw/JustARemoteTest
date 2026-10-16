@@ -1,5 +1,6 @@
 import Dexie from "dexie";
 import { db, SYNCED_TABLES, type SyncedTable } from "./db";
+import { PHOTO_BUCKET } from "./photos";
 import { supabase } from "./supabase";
 
 // Two-way sync between IndexedDB and Supabase.
@@ -95,7 +96,15 @@ async function runCycle(userId: string) {
 async function push(name: SyncedTable, userId: string) {
   const table = db.table(name);
   const dirty = await table.where("dirty").equals(1).toArray();
-  const mine = dirty.filter((row) => row.user_id === userId);
+  let mine = dirty.filter((row) => row.user_id === userId);
+
+  if (name === "progress_photos") {
+    // A photo row goes up only after its image, so other devices never see
+    // a row whose file is missing.
+    await uploadPendingPhotos(userId);
+    const pending = new Set((await db.photo_files.where("uploaded").equals(0).primaryKeys()) as string[]);
+    mine = mine.filter((row) => row.deleted_at || !pending.has(row.id));
+  }
 
   for (let i = 0; i < mine.length; i += PUSH_BATCH) {
     const batch = mine.slice(i, i + PUSH_BATCH);
@@ -108,6 +117,12 @@ async function push(name: SyncedTable, userId: string) {
     const { error } = await supabase!.from(name).upsert(payload);
     if (error) throw new Error(`${name}: ${error.message}`);
 
+    if (name === "progress_photos") {
+      const removed = batch.filter((row) => row.deleted_at).map((row) => row.storage_path as string);
+      // Best effort: a leftover file is invisible to the app and harmless.
+      if (removed.length) await supabase!.storage.from(PHOTO_BUCKET).remove(removed);
+    }
+
     // Clear the flag only on rows not edited while the request ran.
     await db.transaction("rw", table, async () => {
       for (const row of batch) {
@@ -118,6 +133,24 @@ async function push(name: SyncedTable, userId: string) {
           .modify({ dirty: 0 });
       }
     });
+  }
+}
+
+async function uploadPendingPhotos(userId: string) {
+  const pending = await db.photo_files.where("uploaded").equals(0).toArray();
+  for (const file of pending) {
+    const photo = await db.progress_photos.get(file.id);
+    if (!photo || photo.user_id !== userId) continue;
+    if (photo.deleted_at) {
+      await db.photo_files.delete(file.id);
+      continue;
+    }
+    // Raw bytes (not multipart) so any Storage-compatible server accepts it.
+    const { error } = await supabase!.storage
+      .from(PHOTO_BUCKET)
+      .upload(photo.storage_path, await file.full.arrayBuffer(), { contentType: "image/jpeg", upsert: true });
+    if (error) throw new Error(`photo upload: ${error.message}`);
+    await db.photo_files.update(file.id, { uploaded: 1 });
   }
 }
 
@@ -139,7 +172,7 @@ async function pull(name: SyncedTable, userId: string) {
     if (error) throw new Error(`${name}: ${error.message}`);
     if (!data.length) break;
 
-    await db.transaction("rw", table, async () => {
+    await db.transaction("rw", table, db.photo_files, async () => {
       for (const remote of data) {
         const row = fromServer(remote);
         const local = await table.get(row.id);
@@ -148,6 +181,9 @@ async function pull(name: SyncedTable, userId: string) {
         // and start another sync (the overlap window re-reads rows).
         if (local?.dirty === 0 && Date.parse(local.updated_at) === Date.parse(row.updated_at)) continue;
         await table.put(row);
+        if (name === "progress_photos" && (row as { deleted_at?: string | null }).deleted_at) {
+          await db.photo_files.delete(row.id);
+        }
       }
     });
 

@@ -1,11 +1,26 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { acceptDialogs, applyTemplate, exerciseBlock, logSet, onboard, startRoutine } from "./helpers";
+
+/** URL, visible text and cached pages, to explain a failure in CI logs. */
+async function describePage(page: Page) {
+  await page.waitForTimeout(2_000);
+  return page.evaluate(async () => {
+    const cached: string[] = [];
+    for (const name of await caches.keys()) {
+      for (const request of await (await caches.open(name)).keys()) {
+        if (!request.url.includes("/_next/")) cached.push(new URL(request.url).pathname);
+      }
+    }
+    return `url=${location.href} text=${document.body.innerText.slice(0, 200).replace(/\s+/g, " ")} cached=${cached.join(",")}`;
+  });
+}
 
 test("the installed app works without network", async ({ page, context }) => {
   acceptDialogs(page);
   await onboard(page);
   await applyTemplate(page, "ABC", 3);
   await page.getByText("A — Peito, ombro e tríceps").click();
+  await page.waitForURL("**/fichas/editar?id=*");
   const editorUrl = page.url();
 
   // Wait for the service worker to precache the pages, then cut the network.
@@ -28,7 +43,7 @@ test("the installed app works without network", async ({ page, context }) => {
   }
 
   await page.goto(editorUrl);
-  await expect(page.locator("ol > li")).toHaveCount(7);
+  await expect(page.locator("ol > li"), await describePage(page)).toHaveCount(7);
 
   // A whole workout offline.
   await page.goto("/");
