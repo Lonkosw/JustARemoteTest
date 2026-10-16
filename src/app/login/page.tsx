@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { Button, Field, Input } from "@/components/ui";
-import { APP_NAME } from "@/lib/app";
+import { APP_NAME, BASE_PATH } from "@/lib/app";
 import { supabase } from "@/lib/supabase";
 
 type Mode = "sign-in" | "sign-up";
@@ -35,7 +35,7 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: window.location.origin + BASE_PATH },
       });
       if (error) setMessage({ kind: "error", text: translateError(error.message) });
       else if (!data.session)
@@ -48,7 +48,7 @@ export default function LoginPage() {
     if (!supabase) return;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.origin + BASE_PATH },
     });
     if (error) setMessage({ kind: "error", text: translateError(error.message) });
   }

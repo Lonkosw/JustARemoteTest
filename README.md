@@ -26,6 +26,14 @@ Abra http://localhost:3000. Sem configurar o Supabase, o app roda em **modo loca
 4. Em **Authentication > URL Configuration**, coloque a URL do app (por exemplo `http://localhost:3000` e a URL da Vercel) em **Site URL** e **Redirect URLs**.
 5. Opcional: login com Google em **Authentication > Providers > Google**.
 
+## Publicar no GitHub Pages (grátis, sem conta extra)
+
+O workflow `.github/workflows/pages.yml` gera o app como site estático e publica em `https://<usuário>.github.io/<repositório>/` a cada push. Nesse modo o app roda **sem Supabase**: os dados ficam no aparelho de cada pessoa.
+
+Na primeira vez, se o deploy falhar no passo "configure-pages": no GitHub, abra **Settings > Pages**, escolha **Source: GitHub Actions** e rode o workflow de novo (aba **Actions > Deploy to GitHub Pages > Re-run**).
+
+Para gerar o site localmente: `STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=/<repositório> npm run build` (saída em `out/`).
+
 ## Deploy na Vercel
 
 1. Importe o repositório em https://vercel.com/new.

@@ -10,7 +10,10 @@
 //
 // Bump VERSION to drop old caches after a breaking change.
 
-const VERSION = "v6";
+const VERSION = "v7";
+// Sub-folder the app is served from ("" at the domain root), taken from
+// where this file lives, e.g. "/JustARemoteTest" on GitHub Pages.
+const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 const PRECACHE_PAGES = [
@@ -29,17 +32,32 @@ const PRECACHE_PAGES = [
   "/corpo/comparar",
   "/perfil",
 ];
-const ASSET_PATTERN = /\/_next\/static\/[^"'\s)\\]+/g;
+/** One cache key per screen, with or without a trailing slash. */
+function pageKey(pathname) {
+  return pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+}
+
+/**
+ * A copy safe to cache and serve for navigations: browsers refuse a
+ * response that went through a redirect (e.g. /fichas -> /fichas/).
+ */
+async function storable(response) {
+  if (!response.redirected) return response;
+  return new Response(await response.blob(), { status: response.status, headers: response.headers });
+}
+
+const ASSET_PATTERN = new RegExp(`${BASE}/_next/static/[^"'\\s)\\\\]+`, "g");
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const pages = await caches.open(PAGE_CACHE);
       await Promise.all(
-        PRECACHE_PAGES.map(async (path) => {
-          const response = await fetch(path, { cache: "no-store" });
+        PRECACHE_PAGES.map(async (page) => {
+          const path = BASE + page;
+          const response = await storable(await fetch(path, { cache: "no-store" }));
           if (!response.ok) throw new Error(`precache ${path}: ${response.status}`);
-          await pages.put(path, response.clone());
+          await pages.put(pageKey(path), response.clone());
           await cacheAssets(await response.text());
         }),
       );
@@ -70,7 +88,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+  if (url.pathname.startsWith(`${BASE}/_next/static/`) || url.pathname.startsWith(`${BASE}/icons/`)) {
     event.respondWith(cacheFirst(request));
     return;
   }
@@ -110,18 +128,17 @@ async function cacheFirst(request) {
 
 async function networkFirstPage(event, request) {
   const cache = await caches.open(PAGE_CACHE);
+  const key = pageKey(new URL(request.url).pathname);
   try {
     const response = await fetch(request);
-    if (response.ok) {
-      // Store under the path only: one copy per screen, whatever the ?id=.
-      const path = new URL(request.url).pathname;
-      cache.put(path, response.clone());
+    if (response.ok && !response.redirected) {
+      // One copy per screen, whatever the ?id= or trailing slash.
+      cache.put(key, response.clone());
       event.waitUntil(response.clone().text().then(cacheAssets));
     }
     return response;
   } catch (error) {
-    const path = new URL(request.url).pathname;
-    const cached = (await cache.match(path)) ?? (await cache.match("/"));
+    const cached = (await cache.match(key)) ?? (await cache.match(BASE || "/"));
     if (cached) return cached;
     throw error;
   }
