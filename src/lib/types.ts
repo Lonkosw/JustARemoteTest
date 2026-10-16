@@ -63,6 +63,9 @@ export interface Workout extends SyncFields, LocalFields {
 export interface WorkoutSet extends SyncFields, LocalFields {
   workout_id: string;
   exercise_id: string;
+  /** Order of the exercise inside the workout. */
+  exercise_position: number;
+  /** Order of the set inside its exercise. */
   set_index: number;
   weight_kg: number | null;
   reps: number | null;

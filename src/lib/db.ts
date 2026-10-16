@@ -45,6 +45,18 @@ db.version(1).stores({
   meta: "key",
 });
 
+// v2: workout_sets gains exercise_position (not indexed). Old rows get 0.
+db.version(2)
+  .stores({})
+  .upgrade((tx) =>
+    tx
+      .table("workout_sets")
+      .toCollection()
+      .modify((row) => {
+        row.exercise_position ??= 0;
+      }),
+  );
+
 export const SYNCED_TABLES = [
   "profiles",
   "custom_exercises",

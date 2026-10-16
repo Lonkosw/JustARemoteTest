@@ -10,12 +10,15 @@ const VARIANTS: Record<Variant, string> = {
 
 export function Button({
   variant = "primary",
+  size = "md",
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "md" | "sm" }) {
+  // "sm" is a compact inline button; "md" fills the row.
+  const sizing = size === "sm" ? "h-10 px-4 text-sm" : "h-12 w-full px-4 text-base";
   return (
     <button
-      className={`h-12 w-full rounded-xl px-4 text-base font-semibold transition active:scale-[0.98] disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
+      className={`shrink-0 rounded-xl font-semibold transition active:scale-[0.98] disabled:opacity-50 ${sizing} ${VARIANTS[variant]} ${className}`}
       {...props}
     />
   );

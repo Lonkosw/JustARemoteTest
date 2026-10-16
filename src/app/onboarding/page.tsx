@@ -6,7 +6,6 @@ import { useAuth } from "@/components/auth-provider";
 import { ProfileForm, type ProfileFormValues } from "@/components/profile-form";
 import { Splash } from "@/components/splash";
 import { db, newRowFields } from "@/lib/db";
-import { pushProfile } from "@/lib/profile";
 import type { BodyMeasurement, Profile } from "@/lib/types";
 
 export default function OnboardingPage() {
@@ -43,7 +42,6 @@ export default function OnboardingPage() {
       }
     });
 
-    void pushProfile(userId);
     router.replace("/");
   }
 
