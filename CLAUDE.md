@@ -9,4 +9,5 @@
 - Sync (`src/lib/sync.ts`) pushes dirty rows in `SYNCED_TABLES` order (parents first), then pulls by `server_updated_at` cursor. Never write a row without `touchedFields()`/`newRowFields()` or it will not sync.
 - Without `NEXT_PUBLIC_SUPABASE_*` env vars the app runs in local mode (`supabase` is null).
 - UI copy is Brazilian Portuguese. Code, comments and commits are English.
-- Checks: `npm run lint`, `npx tsc --noEmit` (after one `npm run build` or `next typegen` so `LayoutProps` exists), `npm run build`.
+- Checks: `npm run lint`, `npm run typecheck`, `npm test` (Vitest), `npm run test:e2e` (Playwright, local mode), `npm run test:db` and `npm run test:sync` (need Postgres binaries; start a throwaway backend), or `npm run test:all`.
+- New behaviour gets a test: pure logic in `src/lib/*.test.ts`, screens in `e2e/*.spec.ts`, SQL/RLS in `supabase/tests/`.

@@ -76,7 +76,7 @@ export function syncNow(userId: string): Promise<void> {
 }
 
 async function runCycle(userId: string) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
     setStatus({ state: "offline" });
     return;
   }
@@ -161,7 +161,7 @@ async function pull(name: SyncedTable, userId: string) {
 }
 
 /** Server row to local shape: ISO timestamps, numbers, no server columns. */
-function fromServer(remote: Record<string, unknown>) {
+export function fromServer(remote: Record<string, unknown>) {
   const row: Record<string, unknown> = { dirty: 0 };
   for (const [key, value] of Object.entries(remote)) {
     if (key === "server_updated_at") continue;

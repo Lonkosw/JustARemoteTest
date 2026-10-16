@@ -138,10 +138,12 @@ async function swapPositions(
   save: (id: string, position: number) => Promise<unknown>,
 ) {
   const index = rows.findIndex((row) => row.id === id);
+  if (index < 0) return;
   const target = index + direction;
-  if (index < 0 || target < 0 || target >= rows.length) return;
   const reordered = [...rows];
-  [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+  if (target >= 0 && target < rows.length) {
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+  }
   // Renumber 0..n-1 so repeated positions (e.g. after a sync merge) heal too.
   await db.transaction("rw", db.routines, db.routine_exercises, async () => {
     for (const [position, row] of reordered.entries()) {

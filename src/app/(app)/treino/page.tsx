@@ -12,6 +12,7 @@ import { Splash } from "@/components/splash";
 import { Button, Card } from "@/components/ui";
 import { MUSCLE_GROUPS, type ExerciseInfo } from "@/lib/exercises";
 import { DEFAULT_REST_SECONDS, listRoutineExercises } from "@/lib/routines";
+import { loadLoggedSets, RECORD_LABELS, recordsInWorkout, type RecordKind } from "@/lib/stats";
 import type { RoutineExercise, Workout, WorkoutSet } from "@/lib/types";
 import { useExercises } from "@/lib/use-exercises";
 import {
@@ -67,6 +68,13 @@ function ActiveWorkout({ workout, userId }: { workout: Workout; userId: string }
   const planned = useLiveQuery(
     async () => (workout.routine_id ? listRoutineExercises(workout.routine_id) : []),
     [workout.routine_id],
+  );
+
+  // Finished workouts only, so the active one is not its own baseline.
+  const earlier = useLiveQuery(() => loadLoggedSets(userId), [userId]);
+  const records = useMemo(
+    () => (sets && earlier ? recordsInWorkout(sets, earlier) : new Map<string, RecordKind[]>()),
+    [sets, earlier],
   );
 
   const groups = useMemo(() => {
@@ -133,6 +141,7 @@ function ActiveWorkout({ workout, userId }: { workout: Workout; userId: string }
               group={group}
               exercise={byId.get(group.exerciseId)}
               plan={plan}
+              records={records}
             />
           );
         })}
@@ -169,12 +178,14 @@ function ExerciseBlock({
   group,
   exercise,
   plan,
+  records,
 }: {
   userId: string;
   workout: Workout;
   group: ExerciseGroup;
   exercise: ExerciseInfo | undefined;
   plan: RoutineExercise | undefined;
+  records: Map<string, RecordKind[]>;
 }) {
   const previous = useLiveQuery(
     () => getPreviousSets(userId, group.exerciseId, workout.id),
@@ -238,6 +249,7 @@ function ExerciseBlock({
               suggestion={suggestion}
               minReps={range?.[0] ?? null}
               rest={rest}
+              record={records.get(set.id)}
             />
           );
         })}
@@ -274,6 +286,7 @@ function SetRow({
   suggestion,
   minReps,
   rest,
+  record,
 }: {
   set: WorkoutSet;
   label: string;
@@ -281,6 +294,7 @@ function SetRow({
   suggestion: Suggestion | null;
   minReps: number | null;
   rest: number;
+  record: RecordKind[] | undefined;
 }) {
   const timer = useRestTimer();
   const [weight, setWeight] = useState(set.weight_kg?.toString().replace(".", ",") ?? "");
@@ -333,9 +347,15 @@ function SetRow({
       >
         {label}
       </button>
-      <span className="truncate text-sm text-muted tabular-nums">
-        {previous ? `${formatKg(previous.weight_kg)} × ${previous.reps ?? "—"}` : "—"}
-      </span>
+      {record ? (
+        <span className="truncate text-sm font-semibold text-accent" title={record.map((k) => RECORD_LABELS[k]).join(", ")}>
+          🏆 Recorde
+        </span>
+      ) : (
+        <span className="truncate text-sm text-muted tabular-nums">
+          {previous ? `${formatKg(previous.weight_kg)} × ${previous.reps ?? "—"}` : "—"}
+        </span>
+      )}
       <input
         inputMode="decimal"
         aria-label={`Carga da série ${label}`}
