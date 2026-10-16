@@ -7,10 +7,19 @@
 //
 // Bump VERSION to drop old caches after a breaking change.
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `static-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
-const PRECACHE_PAGES = ["/", "/login", "/onboarding", "/fichas", "/evolucao", "/perfil"];
+const PRECACHE_PAGES = [
+  "/",
+  "/login",
+  "/onboarding",
+  "/fichas",
+  "/fichas/modelos",
+  "/fichas/editar",
+  "/evolucao",
+  "/perfil",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

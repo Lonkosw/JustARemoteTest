@@ -4,20 +4,14 @@ import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { useSignedIn } from "@/components/auth-provider";
 import { Button, Card } from "@/components/ui";
+import { ChevronRightIcon } from "@/components/icons";
 import { db } from "@/lib/db";
+import { listRoutines } from "@/lib/routines";
 
 export default function TrainPage() {
   const { userId } = useSignedIn();
   const profile = useLiveQuery(() => db.profiles.get(userId), [userId]);
-  const routines = useLiveQuery(
-    () =>
-      db.routines
-        .where("user_id")
-        .equals(userId)
-        .filter((r) => !r.deleted_at)
-        .sortBy("position"),
-    [userId],
-  );
+  const routines = useLiveQuery(() => listRoutines(userId), [userId]);
 
   const firstName = profile?.name.split(" ")[0];
 
@@ -35,7 +29,13 @@ export default function TrainPage() {
         <ul className="flex flex-col gap-3">
           {routines.map((routine) => (
             <li key={routine.id}>
-              <Card>{routine.name}</Card>
+              <Link
+                href={`/fichas/editar?id=${routine.id}`}
+                className="flex items-center justify-between rounded-2xl bg-surface p-4 font-semibold"
+              >
+                {routine.name}
+                <ChevronRightIcon />
+              </Link>
             </li>
           ))}
         </ul>

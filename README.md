@@ -40,6 +40,9 @@ Abra http://localhost:3000. Sem configurar o Supabase, o app roda em **modo loca
 | `src/app/login`, `src/app/onboarding` | Login e cadastro inicial |
 | `src/lib/db.ts` | Esquema do IndexedDB (Dexie) |
 | `src/lib/types.ts` | Tipos das linhas, iguais às colunas do SQL |
+| `src/lib/exercises.ts` | Catálogo de exercícios (ids estáveis, nunca renomear) |
+| `src/lib/templates.ts` | Modelos de ficha (Full Body, ABC, ABCD, PPL, Upper/Lower) |
+| `src/lib/routines.ts` | Operações de fichas e exercícios personalizados |
 | `supabase/migrations/` | Esquema do Postgres com RLS |
 | `public/sw.js` | Service worker (cache offline) |
 | `scripts/generate-icons.mjs` | Gera os ícones do PWA |
@@ -53,7 +56,7 @@ Abra http://localhost:3000. Sem configurar o Supabase, o app roda em **modo loca
 ## Roteiro
 
 1. ✅ Setup, PWA, login, esquema do banco, onboarding e perfil
-2. Biblioteca de exercícios e fichas (manual + modelos prontos)
+2. ✅ Biblioteca de exercícios (151 + personalizados) e fichas (manual + modelos prontos)
 3. Treino ao vivo offline: timer de descanso, carga anterior, sincronização
 4. Recordes (PR), 1RM estimado, histórico e gráficos
 5. Peso, medidas e fotos de progresso
